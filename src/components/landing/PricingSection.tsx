@@ -7,20 +7,23 @@ import Link from "next/link";
 const plans = [
   {
     name: "First Love",
-    price: "Free",
-    features: ["Up to 5 Photos", "1 Theme", "Unique Link", "QR Code", "7-Day Gallery"],
+    price: "₹149",
+    originalPrice: "₹299",
+    features: ["Up to 10 Photos", "1 Theme", "Unique Link", "QR Code"],
     popular: false,
+  },
+  {
+    name: "Forever Love",
+    price: "₹399",
+    originalPrice: "₹999",
+    features: ["Up to 20 Photos", "All Themes + Music", "Priority Support", "Download as Video", "Custom Domain"],
+    popular: true,
   },
   {
     name: "True Love",
     price: "₹249",
-    features: ["Up to 15 Photos", "All Themes", "Background Music", "Unique Link + QR", "30-Day Gallery", "Love Timeline"],
-    popular: true,
-  },
-  {
-    name: "Forever Love",
-    price: "₹499",
-    features: ["Up to 20 Photos", "All Themes + Music", "Priority Support", "Permanent Gallery", "Download as Video", "Custom Domain"],
+    originalPrice: "₹499",
+    features: ["Up to 15 Photos", "All Themes", "Background Music", "Unique Link + QR", "Love Timeline"],
     popular: false,
   },
 ];
@@ -59,7 +62,10 @@ const PricingSection = () => {
               )}
               <Heart className={`w-8 h-8 mx-auto mb-4 ${plan.popular ? "fill-current" : "text-primary fill-primary"}`} />
               <h3 className="font-heading text-2xl font-bold mb-2">{plan.name}</h3>
-              <div className="text-4xl font-heading font-bold mb-6">{plan.price}</div>
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <span className="text-4xl font-heading font-bold line-through text-muted-foreground/80">{plan.originalPrice}</span>
+                <span className="text-4xl font-heading font-bold">{plan.price}</span>
+              </div>
               <ul className="space-y-3 mb-8 text-left">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 font-body text-sm">

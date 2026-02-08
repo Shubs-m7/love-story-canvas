@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { getGallery, GalleryData } from "@/lib/gallery-store";
 import CountdownTimer from "@/components/CountdownTimer";
 import ThemeEffect from "@/components/ThemeEffect";
+import FlipGallery from "@/components/ui/flip-gallery";
 
 const themeStyles: Record<string, string> = {
     "rose-red": "from-rose to-rose-dark",
@@ -32,7 +33,6 @@ const GalleryView = () => {
     const params = useParams();
     const slug = params?.slug as string;
     const [gallery, setGallery] = useState<GalleryData | null>(null);
-    const [currentPhoto, setCurrentPhoto] = useState(0);
     const [copied, setCopied] = useState(false);
     const [showIntro, setShowIntro] = useState(true);
 
@@ -44,14 +44,6 @@ const GalleryView = () => {
         const timer = setTimeout(() => setShowIntro(false), 3000);
         return () => clearTimeout(timer);
     }, []);
-
-    useEffect(() => {
-        if (!gallery || gallery.photos.length <= 1) return;
-        const interval = setInterval(() => {
-            setCurrentPhoto((prev) => (prev + 1) % gallery.photos.length);
-        }, 4000);
-        return () => clearInterval(interval);
-    }, [gallery]);
 
     const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
@@ -142,53 +134,16 @@ const GalleryView = () => {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 3.4 }}
-                        className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl mb-12 bg-foreground/10"
+                        className="mb-12 flex justify-center"
                     >
-                        <AnimatePresence mode="wait">
-                            <motion.img
-                                key={currentPhoto}
-                                src={gallery.photos[currentPhoto]?.url}
-                                alt="Memory"
-                                className="w-full h-full object-cover"
-                                initial={{ opacity: 0, scale: 1.05 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.8 }}
-                            />
-                        </AnimatePresence>
-                        {/* Dots */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                            {gallery.photos.map((_, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setCurrentPhoto(i)}
-                                    className={`w-2 h-2 rounded-full transition-all ${i === currentPhoto ? "bg-primary-foreground w-6" : "bg-primary-foreground/50"
-                                        }`}
-                                />
-                            ))}
-                        </div>
+                        {gallery.photos.length > 0 ? (
+                            <FlipGallery images={gallery.photos.map(p => ({ url: p.url }))} />
+                        ) : (
+                            <div className="w-full aspect-[4/3] bg-primary-foreground/10 rounded-2xl flex items-center justify-center">
+                                <p className="text-primary-foreground">No photos available</p>
+                            </div>
+                        )}
                     </motion.div>
-
-                    {/* Photo grid */}
-                    {gallery.photos.length > 1 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 3.6 }}
-                            className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-12"
-                        >
-                            {gallery.photos.map((photo, i) => (
-                                <button
-                                    key={photo.id}
-                                    onClick={() => setCurrentPhoto(i)}
-                                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${i === currentPhoto ? "border-primary-foreground shadow-lg scale-105" : "border-transparent opacity-70 hover:opacity-100"
-                                        }`}
-                                >
-                                    <img src={photo.url} alt="" className="w-full h-full object-cover" />
-                                </button>
-                            ))}
-                        </motion.div>
-                    )}
 
                     {/* Love message */}
                     <motion.div
@@ -283,7 +238,7 @@ const GalleryView = () => {
                     {/* Footer */}
                     <div className="text-center py-10">
                         <p className="font-body text-primary-foreground/60 flex items-center justify-center gap-1 text-sm">
-                            Made with <Heart className="w-3 h-3 fill-current" /> by LoveGallery
+                            Made with <Heart className="w-3 h-3 fill-current" /> by <a href="https://www.web-matrix.in" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary-foreground transition-all">WebMatrix</a>
                         </p>
                     </div>
                 </div>

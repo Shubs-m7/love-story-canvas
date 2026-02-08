@@ -10,23 +10,25 @@ import ThemeEffect from "@/components/ThemeEffect";
 
 const themes = [
     // First Love Package (Free)
-    { id: "rose-red" as const, name: "Rose Red", colors: "from-rose to-rose-dark", package: "first-love" },
-    { id: "soft-pink" as const, name: "Soft Pink", colors: "from-blush to-rose-light", package: "first-love" },
-    { id: "candle-light" as const, name: "Candle Light", colors: "from-candle to-gold", package: "first-love" },
+    { id: "classic-love" as const, name: "Classic Love", colors: "from-gray-100 via-gray-200 to-gray-300", package: "first-love" },
+    { id: "pure-elegance" as const, name: "Pure Elegance", colors: "from-neutral-100 via-stone-100 to-zinc-100", package: "first-love" },
 
-    // True Love Package (Premium)
-    { id: "midnight-passion" as const, name: "Midnight Passion", colors: "from-slate-900 via-rose-950 to-black", package: "true-love" },
-    { id: "ocean-romance" as const, name: "Ocean Romance", colors: "from-cyan-900 via-blue-900 to-indigo-950", package: "true-love" },
-    { id: "golden-sunset" as const, name: "Golden Sunset", colors: "from-orange-500 via-red-500 to-pink-600", package: "true-love" },
-    { id: "enchanted-forest" as const, name: "Enchanted Forest", colors: "from-green-900 via-emerald-900 to-teal-950", package: "true-love" },
-    { id: "lavender-dream" as const, name: "Lavender Dream", colors: "from-indigo-300 via-purple-300 to-pink-300", package: "true-love" },
-    { id: "velvet-night" as const, name: "Velvet Night", colors: "from-violet-950 via-fuchsia-950 to-black", package: "true-love" },
-    { id: "classic-love" as const, name: "Classic Love", colors: "from-gray-100 via-gray-200 to-gray-300", package: "true-love" },
-    { id: "cherry-blossom" as const, name: "Cherry Blossom", colors: "from-pink-200 via-rose-200 to-red-100", package: "true-love" },
-    { id: "starry-sky" as const, name: "Starry Sky", colors: "from-slate-900 via-indigo-950 to-slate-900", package: "true-love" },
-    { id: "autumn-warmth" as const, name: "Autumn Warmth", colors: "from-orange-700 via-amber-700 to-yellow-800", package: "true-love" },
-    { id: "mystic-aura" as const, name: "Mystic Aura", colors: "from-teal-900 via-purple-900 to-indigo-900", package: "true-love" },
-    { id: "pure-elegance" as const, name: "Pure Elegance", colors: "from-neutral-100 via-stone-100 to-zinc-100", package: "true-love" },
+    // True Love Package (₹249)
+    { id: "rose-red" as const, name: "Rose Red", colors: "from-rose to-rose-dark", package: "true-love" },
+    { id: "soft-pink" as const, name: "Soft Pink", colors: "from-blush to-rose-light", package: "true-love" },
+    { id: "candle-light" as const, name: "Candle Light", colors: "from-candle to-gold", package: "true-love" },
+
+    // Forever Love Package (₹499)
+    { id: "midnight-passion" as const, name: "Midnight Passion", colors: "from-slate-900 via-rose-950 to-black", package: "forever-love" },
+    { id: "ocean-romance" as const, name: "Ocean Romance", colors: "from-cyan-900 via-blue-900 to-indigo-950", package: "forever-love" },
+    { id: "golden-sunset" as const, name: "Golden Sunset", colors: "from-orange-500 via-red-500 to-pink-600", package: "forever-love" },
+    { id: "enchanted-forest" as const, name: "Enchanted Forest", colors: "from-green-900 via-emerald-900 to-teal-950", package: "forever-love" },
+    { id: "lavender-dream" as const, name: "Lavender Dream", colors: "from-indigo-300 via-purple-300 to-pink-300", package: "forever-love" },
+    { id: "velvet-night" as const, name: "Velvet Night", colors: "from-violet-950 via-fuchsia-950 to-black", package: "forever-love" },
+    { id: "cherry-blossom" as const, name: "Cherry Blossom", colors: "from-pink-200 via-rose-200 to-red-100", package: "forever-love" },
+    { id: "starry-sky" as const, name: "Starry Sky", colors: "from-slate-900 via-indigo-950 to-slate-900", package: "forever-love" },
+    { id: "autumn-warmth" as const, name: "Autumn Warmth", colors: "from-orange-700 via-amber-700 to-yellow-800", package: "forever-love" },
+    { id: "mystic-aura" as const, name: "Mystic Aura", colors: "from-teal-900 via-purple-900 to-indigo-900", package: "forever-love" },
 ];
 
 const musicOptions = [
@@ -301,36 +303,82 @@ const CreateGallery = () => {
                             <div className="mb-8">
                                 <h4 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                                     <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
-                                    First Love Package
+                                    First Love Package <span className="text-sm font-normal ml-1"><span className="line-through text-muted-foreground">₹299</span> ₹149</span>
                                 </h4>
                                 <div className="grid grid-cols-3 gap-3">
-                                    {themes.filter(t => t.package === "first-love").map((t) => (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => setTheme(t.id)}
-                                            className={`relative rounded-xl p-4 text-center border-2 transition-all ${theme === t.id ? "border-primary shadow-lg" : "border-transparent hover:border-primary/30"
-                                                }`}
-                                        >
-                                            <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner`} />
-                                            <span className="font-body text-xs sm:text-sm text-foreground">{t.name}</span>
-                                            {theme === t.id && (
-                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full romantic-gradient flex items-center justify-center">
-                                                    <Check className="w-3 h-3 text-primary-foreground" />
-                                                </div>
-                                            )}
-                                        </button>
-                                    ))}
+                                    {themes.filter(t => t.package === "first-love").map((t) => {
+                                        const isDisabled = photos.length > 10;
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => !isDisabled && setTheme(t.id)}
+                                                disabled={isDisabled}
+                                                className={`relative rounded-xl p-4 text-center border-2 transition-all ${theme === t.id ? "border-primary shadow-lg" : "border-transparent hover:border-primary/30"
+                                                    } ${isDisabled ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+                                            >
+                                                <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner`} />
+                                                <span className="font-body text-xs sm:text-sm text-foreground">{t.name}</span>
+                                                {theme === t.id && (
+                                                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full romantic-gradient flex items-center justify-center">
+                                                        <Check className="w-3 h-3 text-primary-foreground" />
+                                                    </div>
+                                                )}
+                                                {isDisabled && (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <span className="bg-background/80 text-foreground text-[10px] px-2 py-1 rounded-full font-bold">Max 10 Photos</span>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* True Love Package (Premium) */}
+                            {/* True Love Package */}
+                            <div className="mb-8">
+                                <h4 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                                    <span className="text-xl">💍</span>
+                                    True Love Package <span className="text-sm font-normal ml-1"><span className="line-through text-muted-foreground">₹499</span> ₹249</span>
+                                </h4>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {themes.filter(t => t.package === "true-love").map((t) => {
+                                        const isDisabled = photos.length > 15;
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => !isDisabled && setTheme(t.id)}
+                                                disabled={isDisabled}
+                                                className={`relative rounded-xl p-4 text-center border-2 transition-all ${theme === t.id
+                                                    ? "border-amber-500 shadow-xl shadow-amber-500/20"
+                                                    : "border-amber-200 hover:border-amber-400"
+                                                    } ${isDisabled ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
+                                            >
+                                                <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner ring-1 ring-black/5`} />
+                                                <span className="font-body text-xs sm:text-sm text-foreground font-medium">{t.name}</span>
+                                                {theme === t.id && (
+                                                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-md">
+                                                        <Check className="w-3.5 h-3.5 text-white" />
+                                                    </div>
+                                                )}
+                                                {isDisabled && (
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <span className="bg-background/80 text-foreground text-[10px] px-2 py-1 rounded-full font-bold">Max 15 Photos</span>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Forever Love Package (Premium) */}
                             <div className="mb-8">
                                 <h4 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                                     <span className="text-xl">👑</span>
-                                    True Love Package <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-600 text-white px-2 py-0.5 rounded-full font-sans uppercase tracking-wider font-bold shadow-sm">Premium</span>
+                                    Forever Love Package <span className="text-sm font-normal ml-1"><span className="line-through text-muted-foreground">₹999</span> ₹399</span> <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-600 text-white px-2 py-0.5 rounded-full font-sans uppercase tracking-wider font-bold shadow-sm">Most Popular</span>
                                 </h4>
                                 <div className="grid grid-cols-3 gap-3">
-                                    {themes.filter(t => t.package === "true-love").map((t) => (
+                                    {themes.filter(t => t.package === "forever-love").map((t) => (
                                         <button
                                             key={t.id}
                                             onClick={() => setTheme(t.id)}
