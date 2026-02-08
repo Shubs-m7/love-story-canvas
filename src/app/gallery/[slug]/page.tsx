@@ -8,12 +8,24 @@ import { Heart, Share2, Copy, Check } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { getGallery, GalleryData } from "@/lib/gallery-store";
 import CountdownTimer from "@/components/CountdownTimer";
-import HeartParticles from "@/components/HeartParticles";
+import ThemeEffect from "@/components/ThemeEffect";
 
 const themeStyles: Record<string, string> = {
     "rose-red": "from-rose to-rose-dark",
     "soft-pink": "from-blush to-rose-light",
     "candle-light": "from-candle to-gold",
+    "midnight-passion": "from-slate-900 via-rose-950 to-black",
+    "ocean-romance": "from-cyan-900 via-blue-900 to-indigo-950",
+    "golden-sunset": "from-orange-500 via-red-500 to-pink-600",
+    "enchanted-forest": "from-green-900 via-emerald-900 to-teal-950",
+    "lavender-dream": "from-indigo-300 via-purple-300 to-pink-300",
+    "velvet-night": "from-violet-950 via-fuchsia-950 to-black",
+    "classic-love": "from-gray-100 via-gray-200 to-gray-300",
+    "cherry-blossom": "from-pink-200 via-rose-200 to-red-100",
+    "starry-sky": "from-slate-900 via-indigo-950 to-slate-900",
+    "autumn-warmth": "from-orange-700 via-amber-700 to-yellow-800",
+    "mystic-aura": "from-teal-900 via-purple-900 to-indigo-900",
+    "pure-elegance": "from-neutral-100 via-stone-100 to-zinc-100",
 };
 
 const GalleryView = () => {
@@ -72,7 +84,7 @@ const GalleryView = () => {
 
     return (
         <div className="min-h-screen relative overflow-hidden">
-            <HeartParticles />
+            <ThemeEffect theme={gallery.theme} />
 
             {/* Animated intro */}
             <AnimatePresence>
@@ -204,8 +216,7 @@ const GalleryView = () => {
                         <h2 className="font-heading text-2xl sm:text-3xl font-bold text-primary-foreground text-center mb-8">Our Love Story</h2>
                         <div className="space-y-6">
                             {[
-                                { title: "How We Met", icon: "💫", text: "The day our paths crossed and everything changed forever." },
-                                { title: "Our Best Moments", icon: "✨", text: "Every moment with you is a memory I'll treasure forever." },
+                                ...gallery.stories.map(s => ({ title: s.title, icon: s.icon, text: s.content })),
                                 { title: "Forever Together", icon: "💕", text: `${gallery.yourName} & ${gallery.partnerName} — now and always.` },
                             ].map((item, i) => (
                                 <motion.div

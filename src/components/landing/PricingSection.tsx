@@ -7,19 +7,19 @@ import Link from "next/link";
 const plans = [
   {
     name: "First Love",
-    price: "₹299",
+    price: "Free",
     features: ["Up to 5 Photos", "1 Theme", "Unique Link", "QR Code", "7-Day Gallery"],
     popular: false,
   },
   {
     name: "True Love",
-    price: "₹499",
+    price: "₹249",
     features: ["Up to 15 Photos", "All Themes", "Background Music", "Unique Link + QR", "30-Day Gallery", "Love Timeline"],
     popular: true,
   },
   {
     name: "Forever Love",
-    price: "₹999",
+    price: "₹499",
     features: ["Up to 20 Photos", "All Themes + Music", "Priority Support", "Permanent Gallery", "Download as Video", "Custom Domain"],
     popular: false,
   },
