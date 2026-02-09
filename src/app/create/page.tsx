@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowLeft, ArrowRight, Upload, X, ImagePlus, Music, Palette, Check, BookOpen, Star, Zap, Crown } from "lucide-react";
+import { Heart, Share2, Copy, Check, Upload, X, ChevronRight, Music, Palette, BookOpen, Crown, Zap, Play, Pause, ArrowLeft, ArrowRight, Star, ImagePlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { GalleryData, generateSlug } from "@/lib/types";
@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/select";
 
 type Plan = 'free' | 'true-love' | 'forever-love';
+
+interface Photo {
+    id: string;
+    url: string;
+    file: File;
+    caption?: string;
+}
 
 const themes = [
     // First Love Package (Free)
@@ -43,9 +50,9 @@ const themes = [
 ];
 
 const musicOptions = [
-    { id: "romantic" as const, name: "Romantic Instrumental", emoji: "🎻" },
-    { id: "piano" as const, name: "Soft Piano", emoji: "🎹" },
-    { id: "love-song" as const, name: "Love Song", emoji: "🎵" },
+    { id: "romantic" as const, name: "Romantic Instrumental", emoji: "🎻", url: "/music/romantic_instrumental.mpeg" },
+    { id: "piano" as const, name: "Soft Piano", emoji: "🎹", url: "/music/soft_piano.mpeg" },
+    { id: "love-song" as const, name: "Love Song", emoji: "🎵", url: "/music/love_song.mpeg" },
 ];
 
 const CreateGallery = () => {
@@ -58,13 +65,18 @@ const CreateGallery = () => {
         loveMessage: "",
         specialDate: "",
         stories: [
-            { title: "How We Met", content: "The day our paths crossed and everything changed forever.", icon: "💫" },
-            { title: "Our Best Moments", content: "Every moment with you is a memory I'll treasure forever.", icon: "✨" }
+            { title: "First Meeting", content: "", icon: "✨" },
+            { title: "First Date", content: "", icon: "🌹" },
+            { title: "Memorable Moment", content: "", icon: "💑" },
         ]
     });
-    const [photos, setPhotos] = useState<{ id: string; url: string; file: File; caption?: string }[]>([]);
+    const [photos, setPhotos] = useState<Photo[]>([]);
     const [theme, setTheme] = useState<GalleryData["theme"]>("classic-love");
-    const [music, setMusic] = useState<GalleryData["music"]>("romantic");
+    const [music, setMusic] = useState<GalleryData["music"]>(musicOptions[0].url);
+    const [customMusicFile, setCustomMusicFile] = useState<File | null>(null);
+    const [isCustomMusic, setIsCustomMusic] = useState(false);
+    const [previewMusic, setPreviewMusic] = useState<string | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // Plan limits
     const maxPhotos = selectedPlan === 'free' ? 10 : selectedPlan === 'true-love' ? 15 : 20;
@@ -142,7 +154,32 @@ const CreateGallery = () => {
         }
 
         setIsGenerating(true);
+
         try {
+            let finalMusicUrl = music;
+
+            // 0. Upload Custom Music if selected
+            if (isCustomMusic && customMusicFile) {
+                const musicFileName = `music-${Date.now()}-${customMusicFile.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+                try {
+                    const { error: uploadError } = await supabase.storage
+                        .from('uploads')
+                        .upload(musicFileName, customMusicFile);
+
+                    if (uploadError) throw uploadError;
+
+                    const { data: publicUrlData } = supabase.storage
+                        .from('uploads')
+                        .getPublicUrl(musicFileName);
+
+                    finalMusicUrl = publicUrlData.publicUrl;
+                } catch (error) {
+                    console.error("Error uploading music:", error);
+                    alert("Failed to upload custom music. Using default music instead.");
+                    finalMusicUrl = musicOptions[0].url;
+                }
+            }
+
             // 1. Upload photos to Supabase Storage
             const uploadedPhotos = await Promise.all(photos.map(async (p) => {
                 if (p.file) {
@@ -184,7 +221,7 @@ const CreateGallery = () => {
                         loveMessage: formData.loveMessage,
                         specialDate: formData.specialDate,
                         theme,
-                        music,
+                        music: finalMusicUrl,
                         stories: formData.stories,
                         photos: uploadedPhotos,
                         slug
@@ -203,7 +240,6 @@ const CreateGallery = () => {
         } catch (error) {
             console.error("Error generating gallery:", error);
             alert("Something went wrong. Please try again.");
-        } finally {
             setIsGenerating(false);
         }
     };
@@ -605,106 +641,188 @@ const CreateGallery = () => {
                                 <Music className="w-5 h-5 text-primary" />
                                 <h3 className="font-body font-semibold text-white">Background Music</h3>
                             </div>
-                            <div className="space-y-2">
-                                <Select
-                                    value={music}
-                                    onValueChange={(value) => setMusic(value as GalleryData["music"])}
-                                >
-                                    <SelectTrigger className="w-full px-4 py-8 rounded-xl border-2 border-white/20 bg-black/20 backdrop-blur-sm text-white font-body text-lg focus:ring-primary focus:border-primary/50 transition-all">
-                                        <SelectValue placeholder="Select background music" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-black/80 backdrop-blur-xl border-white/20 text-white">
-                                        {musicOptions.map((m) => (
-                                            <SelectItem
-                                                key={m.id}
-                                                value={m.id}
-                                                className="focus:bg-white/20 focus:text-white cursor-pointer py-3 text-base"
-                                            >
-                                                <div className="flex items-center gap-3">
+
+                            <div className="space-y-3">
+                                {/* Custom Music Upload Option - Only for True Love & Forever Love */}
+                                {(selectedPlan === 'true-love' || selectedPlan === 'forever-love' || getThemePackage(theme) === 'true-love' || getThemePackage(theme) === 'forever-love') && (
+                                    <div
+                                        className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer backdrop-blur-sm ${isCustomMusic
+                                            ? "border-rose-500 bg-rose-500/20"
+                                            : "border-white/20 hover:border-white/40 bg-black/20"
+                                            }`}
+                                        onClick={() => document.getElementById('music-upload')?.click()}
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isCustomMusic ? "bg-rose-500 text-white" : "bg-white/10 text-white/70"
+                                                }`}>
+                                                <Upload className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold mb-1 text-white">Upload Custom Music</h3>
+                                                <p className="text-sm text-white/70 mb-2">
+                                                    {customMusicFile ? customMusicFile.name : "Select an MP3 or WAV file (Max 5MB)"}
+                                                </p>
+                                                {isCustomMusic && customMusicFile && (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-200 bg-rose-500/30 px-2 py-0.5 rounded-full border border-rose-500/50">
+                                                        <Check className="w-3 h-3" /> Selected
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="file"
+                                                id="music-upload"
+                                                accept=".mp3,audio/mpeg,.wav,audio/wav,.mpeg"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        if (file.size > 5 * 1024 * 1024) {
+                                                            alert("File size must be less than 5MB");
+                                                            return;
+                                                        }
+                                                        setCustomMusicFile(file);
+                                                        setIsCustomMusic(true);
+                                                        setMusic(""); // Clear preset music
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        {/* Premium Badge */}
+                                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                                            <Crown className="w-3 h-3" /> PREMIUM
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Preset Music Options */}
+                                {musicOptions.map((m) => (
+                                    <div
+                                        key={m.id}
+                                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all backdrop-blur-sm ${music === m.url && !isCustomMusic
+                                            ? "border-rose-500 bg-rose-500/20"
+                                            : "border-white/20 hover:border-white/40 bg-black/20"
+                                            }`}
+                                        onClick={() => {
+                                            setMusic(m.url);
+                                            setIsCustomMusic(false);
+                                            setCustomMusicFile(null);
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${music === m.url && !isCustomMusic ? "bg-rose-500 text-white" : "bg-white/10 text-white/70"
+                                                    }`}>
                                                     <span className="text-xl">{m.emoji}</span>
-                                                    <span>{m.name}</span>
                                                 </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                                <div>
+                                                    <h3 className="font-semibold text-white">{m.name}</h3>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (previewMusic === m.url) {
+                                                        audioRef.current?.pause();
+                                                        setPreviewMusic(null);
+                                                    } else {
+                                                        setPreviewMusic(m.url);
+                                                    }
+                                                }}
+                                                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+                                            >
+                                                {previewMusic === m.url ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
+                            {/* Hidden Audio Player for Preview */}
+                            <audio
+                                ref={audioRef}
+                                src={previewMusic || undefined}
+                                onEnded={() => setPreviewMusic(null)}
+                                autoPlay
+                                className="hidden"
+                            />
                         </motion.div>
                     )}
                 </AnimatePresence>
 
                 {/* Upgrade Modal */}
                 <AnimatePresence>
-                    {showUpgradeModal && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setShowUpgradeModal(false)}
-                        >
+                    {
+                        showUpgradeModal && (
                             <motion.div
-                                initial={{ scale: 0.9, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.9, opacity: 0 }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                                onClick={() => setShowUpgradeModal(false)}
                             >
-                                <div className="text-center mb-6">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <Crown className="w-8 h-8 text-white" />
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.9, opacity: 0 }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
+                                >
+                                    <div className="text-center mb-6">
+                                        <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Crown className="w-8 h-8 text-white" />
+                                        </div>
+                                        <h3 className="font-heading text-2xl font-bold text-gray-800 mb-2">
+                                            Upgrade Required
+                                        </h3>
+                                        <p className="text-gray-600 font-body">
+                                            This beautiful theme requires the{" "}
+                                            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+                                                {requiredPlan === 'true-love' ? 'True Love' : 'Forever Love'}
+                                            </span>{" "}
+                                            package
+                                        </p>
                                     </div>
-                                    <h3 className="font-heading text-2xl font-bold text-gray-800 mb-2">
-                                        Upgrade Required
-                                    </h3>
-                                    <p className="text-gray-600 font-body">
-                                        This beautiful theme requires the{" "}
-                                        <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
-                                            {requiredPlan === 'true-love' ? 'True Love' : 'Forever Love'}
-                                        </span>{" "}
-                                        package
-                                    </p>
-                                </div>
 
-                                <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm text-gray-600">Current Plan:</span>
-                                        <span className="font-semibold text-gray-800">
-                                            {selectedPlan === 'free' ? 'First Love' : selectedPlan === 'true-love' ? 'True Love' : 'Forever Love'}
-                                        </span>
+                                    <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm text-gray-600">Current Plan:</span>
+                                            <span className="font-semibold text-gray-800">
+                                                {selectedPlan === 'free' ? 'First Love' : selectedPlan === 'true-love' ? 'True Love' : 'Forever Love'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-600">Required Plan:</span>
+                                            <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+                                                {requiredPlan === 'true-love' ? 'True Love' : 'Forever Love'}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Required Plan:</span>
-                                        <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
-                                            {requiredPlan === 'true-love' ? 'True Love' : 'Forever Love'}
-                                        </span>
-                                    </div>
-                                </div>
 
-                                <div className="space-y-3">
-                                    <button
-                                        onClick={() => {
-                                            setShowUpgradeModal(false);
-                                            setStep(1);
-                                        }}
-                                        className="w-full px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-white hover:shadow-lg transition-all"
-                                    >
-                                        Change Plan
-                                    </button>
-                                    <button
-                                        onClick={() => setShowUpgradeModal(false)}
-                                        className="w-full px-6 py-3 rounded-full font-body font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                                    >
-                                        Choose Different Theme
-                                    </button>
-                                </div>
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={() => {
+                                                setShowUpgradeModal(false);
+                                                setStep(1);
+                                            }}
+                                            className="w-full px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-white hover:shadow-lg transition-all"
+                                        >
+                                            Change Plan
+                                        </button>
+                                        <button
+                                            onClick={() => setShowUpgradeModal(false)}
+                                            className="w-full px-6 py-3 rounded-full font-body font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                                        >
+                                            Choose Different Theme
+                                        </button>
+                                    </div>
+                                </motion.div>
                             </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        )
+                    }
+                </AnimatePresence >
 
                 {/* Navigation buttons */}
-                <div className="flex justify-between mt-8">
+                < div className="flex justify-between mt-8" >
                     {step > 1 ? (
                         <motion.button
                             whileHover={{ scale: 1.03 }}
@@ -718,34 +836,36 @@ const CreateGallery = () => {
                         <div />
                     )}
 
-                    {step < 5 ? (
-                        <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => canProceed() && setStep(step + 1)}
-                            disabled={!canProceed()}
-                            className="px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-primary-foreground flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next <ArrowRight className="w-4 h-4" />
-                        </motion.button>
-                    ) : (
-                        <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={handleGenerate}
-                            disabled={isGenerating}
-                            className="px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-primary-foreground flex items-center gap-2 animate-pulse-glow disabled:opacity-70 disabled:cursor-wait"
-                        >
-                            {isGenerating ? (
-                                <>Generating... <span className="animate-spin">⏳</span></>
-                            ) : (
-                                <>Generate My Love Page <Heart className="w-4 h-4 fill-current" /></>
-                            )}
-                        </motion.button>
-                    )}
-                </div>
-            </div>
-        </div>
+                    {
+                        step < 5 ? (
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => canProceed() && setStep(step + 1)}
+                                disabled={!canProceed()}
+                                className="px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-primary-foreground flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Next <ArrowRight className="w-4 h-4" />
+                            </motion.button>
+                        ) : (
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleGenerate}
+                                disabled={isGenerating}
+                                className="px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-primary-foreground flex items-center gap-2 animate-pulse-glow disabled:opacity-70 disabled:cursor-wait"
+                            >
+                                {isGenerating ? (
+                                    <>Generating... <span className="animate-spin">⏳</span></>
+                                ) : (
+                                    <>Generate My Love Page <Heart className="w-4 h-4 fill-current" /></>
+                                )}
+                            </motion.button>
+                        )
+                    }
+                </div >
+            </div >
+        </div >
     );
 };
 

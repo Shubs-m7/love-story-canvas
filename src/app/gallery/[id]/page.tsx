@@ -108,6 +108,14 @@ const GalleryView = () => {
 
             <ThemeEffect theme={gallery.theme} />
 
+            {/* Background Music */}
+            {gallery.music && (
+                <audio autoPlay loop>
+                    <source src={gallery.music} type="audio/mpeg" />
+                    Your browser does not support the audio element.
+                </audio>
+            )}
+
             {/* Animated intro */}
             <AnimatePresence>
                 {showIntro && (
