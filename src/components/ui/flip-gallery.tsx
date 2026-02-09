@@ -47,6 +47,15 @@ export default function FlipGallery({ images }: FlipGalleryProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [images]); // Re-run if images change
 
+    // Auto-play loop
+    useEffect(() => {
+        if (images.length <= 1) return;
+        const interval = setInterval(() => {
+            updateIndex(1);
+        }, 4000);
+        return () => clearInterval(interval);
+    }, [currentIndex, images.length]); // Re-run when index changes to keep closure fresh, or use functonal update
+
     const defineFirstImg = () => {
         if (!uniteRef.current) return;
         uniteRef.current.forEach((el) => setActiveImage(el as HTMLElement));

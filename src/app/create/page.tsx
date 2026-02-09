@@ -2,11 +2,21 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowLeft, ArrowRight, Upload, X, ImagePlus, Music, Palette, Check, BookOpen } from "lucide-react";
+import { Heart, ArrowLeft, ArrowRight, Upload, X, ImagePlus, Music, Palette, Check, BookOpen, Star, Zap, Crown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { GalleryData, generateSlug, saveGallery } from "@/lib/gallery-store";
+import { GalleryData, generateSlug } from "@/lib/types";
+import { supabase } from "@/lib/supabaseClient";
 import ThemeEffect from "@/components/ThemeEffect";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+
+type Plan = 'free' | 'true-love' | 'forever-love';
 
 const themes = [
     // First Love Package (Free)
@@ -17,6 +27,7 @@ const themes = [
     { id: "rose-red" as const, name: "Rose Red", colors: "from-rose to-rose-dark", package: "true-love" },
     { id: "soft-pink" as const, name: "Soft Pink", colors: "from-blush to-rose-light", package: "true-love" },
     { id: "candle-light" as const, name: "Candle Light", colors: "from-candle to-gold", package: "true-love" },
+    { id: "lavender-mist" as const, name: "Lavender Mist", colors: "from-indigo-300 via-purple-300 to-pink-300", package: "true-love" },
 
     // Forever Love Package (₹499)
     { id: "midnight-passion" as const, name: "Midnight Passion", colors: "from-slate-900 via-rose-950 to-black", package: "forever-love" },
@@ -40,6 +51,7 @@ const musicOptions = [
 const CreateGallery = () => {
     const router = useRouter();
     const [step, setStep] = useState(1);
+    const [selectedPlan, setSelectedPlan] = useState<Plan>('free');
     const [formData, setFormData] = useState({
         yourName: "",
         partnerName: "",
@@ -50,50 +62,154 @@ const CreateGallery = () => {
             { title: "Our Best Moments", content: "Every moment with you is a memory I'll treasure forever.", icon: "✨" }
         ]
     });
-    const [photos, setPhotos] = useState<{ id: string; url: string; file: File }[]>([]);
-    const [theme, setTheme] = useState<GalleryData["theme"]>("rose-red");
+    const [photos, setPhotos] = useState<{ id: string; url: string; file: File; caption?: string }[]>([]);
+    const [theme, setTheme] = useState<GalleryData["theme"]>("classic-love");
     const [music, setMusic] = useState<GalleryData["music"]>("romantic");
+
+    // Plan limits
+    const maxPhotos = selectedPlan === 'free' ? 10 : selectedPlan === 'true-love' ? 15 : 20;
 
     const handlePhotoDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         addFiles(Array.from(e.dataTransfer.files));
-    }, []);
+    }, [photos.length, maxPhotos]);
 
     const addFiles = (files: File[]) => {
-        const imageFiles = files.filter((f) => f.type.startsWith("image/")).slice(0, 20 - photos.length);
+        const remainingSlots = maxPhotos - photos.length;
+        if (remainingSlots <= 0) return;
+
+        const imageFiles = files.filter((f) => f.type.startsWith("image/")).slice(0, remainingSlots);
         const newPhotos = imageFiles.map((file) => ({
             id: Math.random().toString(36).substring(2),
             url: URL.createObjectURL(file),
             file,
         }));
-        setPhotos((prev) => [...prev, ...newPhotos].slice(0, 20));
+        setPhotos((prev) => [...prev, ...newPhotos]);
     };
 
     const removePhoto = (id: string) => {
         setPhotos((prev) => prev.filter((p) => p.id !== id));
     };
 
+    const handlePlanSelect = (plan: Plan) => {
+        setSelectedPlan(plan);
+        // Reset photos if downgrading?
+        // Let's just keep them but the limit will enforce on next add. 
+        // Or we could slice them:
+        // if (plan === 'free' && photos.length > 10) setPhotos(photos.slice(0, 10));
+        setStep(2);
+    };
+
     const canProceed = () => {
-        if (step === 1) return formData.yourName.trim() && formData.partnerName.trim() && formData.loveMessage.trim();
-        if (step === 3) return photos.length > 0;
+        if (step === 2) return formData.yourName.trim() && formData.partnerName.trim() && formData.loveMessage.trim();
+        if (step === 4) return photos.length > 0;
         return true;
     };
 
-    const handleGenerate = () => {
-        const slug = generateSlug(formData.yourName, formData.partnerName);
-        const gallery: GalleryData = {
-            ...formData,
-            photos: photos.map((p) => ({ id: p.id, url: p.url })),
-            theme,
-            music,
-            stories: formData.stories,
-            slug,
-        };
-        saveGallery(gallery);
-        router.push(`/gallery/${slug}`);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [requiredPlan, setRequiredPlan] = useState<Plan | null>(null);
+
+    // Helper to get the package tier for a theme
+    const getThemePackage = (themeId: GalleryData["theme"]) => {
+        const themeObj = themes.find(t => t.id === themeId);
+        return themeObj?.package || 'first-love';
+    };
+
+    // Helper to check if theme requires upgrade
+    const themeRequiresUpgrade = (themeId: GalleryData["theme"]) => {
+        const themePackage = getThemePackage(themeId);
+        if (selectedPlan === 'forever-love') return false;
+        if (selectedPlan === 'true-love') return themePackage === 'forever-love';
+        // Free plan (first-love)
+        return themePackage !== 'first-love';
+    };
+
+    // Helper to get required plan for a theme
+    const getRequiredPlan = (themeId: GalleryData["theme"]): Plan => {
+        const themePackage = getThemePackage(themeId);
+        if (themePackage === 'forever-love') return 'forever-love';
+        if (themePackage === 'true-love') return 'true-love';
+        return 'free';
+    };
+
+    const handleGenerate = async () => {
+        // Check if theme requires upgrade
+        if (themeRequiresUpgrade(theme)) {
+            setRequiredPlan(getRequiredPlan(theme));
+            setShowUpgradeModal(true);
+            return;
+        }
+
+        setIsGenerating(true);
+        try {
+            // 1. Upload photos to Supabase Storage
+            const uploadedPhotos = await Promise.all(photos.map(async (p) => {
+                if (p.file) {
+                    const fileName = `${Date.now()}-${p.id}-${p.file.name.replace(/[^a-zA-Z0-9.]/g, '')}`;
+
+                    try {
+                        const { data, error } = await supabase.storage
+                            .from('uploads')
+                            .upload(fileName, p.file);
+
+                        if (error) {
+                            console.error("Error uploading image:", error);
+                            return { id: p.id, url: p.url, caption: p.caption };
+                        }
+
+                        const { data: publicUrlData } = supabase.storage
+                            .from('uploads')
+                            .getPublicUrl(fileName);
+
+                        return { id: p.id, url: publicUrlData.publicUrl, caption: p.caption };
+                    } catch (err) {
+                        console.error("Exception uploading image:", err);
+                        return { id: p.id, url: p.url, caption: p.caption };
+                    }
+                }
+                return { id: p.id, url: p.url, caption: p.caption };
+            }));
+
+            // 2. Generate slug
+            const slug = generateSlug(formData.yourName, formData.partnerName);
+
+            // 3. Insert into Supabase
+            const { data, error } = await supabase
+                .from('galleries')
+                .insert([
+                    {
+                        yourName: formData.yourName,
+                        partnerName: formData.partnerName,
+                        loveMessage: formData.loveMessage,
+                        specialDate: formData.specialDate,
+                        theme,
+                        music,
+                        stories: formData.stories,
+                        photos: uploadedPhotos,
+                        slug
+                    }
+                ])
+                .select()
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            if (data) {
+                router.push(`/gallery/${data.id}`);
+            }
+        } catch (error) {
+            console.error("Error generating gallery:", error);
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const selectedThemeObj = themes.find(t => t.id === theme) || themes[0];
+    const totalSteps = 5;
 
     return (
         <div className={`min-h-screen relative transition-colors duration-700 bg-gradient-to-br ${selectedThemeObj.colors}`}>
@@ -114,7 +230,7 @@ const CreateGallery = () => {
             {/* Progress bar */}
             <div className="relative z-10 max-w-2xl mx-auto px-4 mb-10">
                 <div className="flex items-center justify-between mb-2">
-                    {[1, 2, 3, 4].map((s) => (
+                    {[1, 2, 3, 4, 5].map((s) => (
                         <div
                             key={s}
                             className={`w-10 h-10 rounded-full flex items-center justify-center font-body font-semibold text-sm transition-colors ${s <= step ? "romantic-gradient text-primary-foreground" : "bg-muted text-muted-foreground"
@@ -127,18 +243,93 @@ const CreateGallery = () => {
                 <div className="h-1 bg-muted rounded-full overflow-hidden">
                     <motion.div
                         className="h-full romantic-gradient"
-                        animate={{ width: `${((step - 1) / 3) * 100}%` }}
+                        animate={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
                         transition={{ duration: 0.3 }}
                     />
+                </div>
+                <div className="text-center mt-2 text-sm text-muted-foreground font-body">
+                    {step === 1 && "Start Your Journey"}
+                    {step === 2 && "Couple Details"}
+                    {step === 3 && "Your Love Story"}
+                    {step === 4 && "Upload Memories"}
+                    {step === 5 && "Theme & Music"}
                 </div>
             </div>
 
             {/* Steps */}
             <div className="relative z-10 max-w-2xl mx-auto px-4 pb-20">
                 <AnimatePresence mode="wait">
+                    {/* STEP 1: PLAN SELECTION */}
                     {step === 1 && (
                         <motion.div
                             key="step1"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="space-y-6"
+                        >
+                            <h2 className="font-heading text-2xl font-bold text-center text-foreground mb-8">Choose Your Package</h2>
+
+                            <div className="grid md:grid-cols-1 gap-4">
+                                {/* First Love Plan */}
+                                <div
+                                    onClick={() => handlePlanSelect('free')}
+                                    className="group cursor-pointer bg-white/90 backdrop-blur-md p-6 rounded-2xl border-2 border-gray-100 hover:border-pink-300 shadow-sm hover:shadow-xl transition-all relative overflow-hidden flex items-center justify-between"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-gray-100 w-12 h-12 rounded-xl flex items-center justify-center text-gray-600 group-hover:bg-pink-100 group-hover:text-pink-600 transition-colors">
+                                            <Star className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-800">First Love <span className="text-sm font-normal text-gray-500 ml-1">₹149</span></h3>
+                                            <p className="text-gray-500 text-sm">Classic themes, 10 photos max</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-6 h-6 text-gray-300 group-hover:text-pink-500 transition-colors" />
+                                </div>
+
+                                {/* True Love Plan */}
+                                <div
+                                    onClick={() => handlePlanSelect('true-love')}
+                                    className="group cursor-pointer bg-white/90 backdrop-blur-md p-6 rounded-2xl border-2 border-pink-100 hover:border-pink-300 shadow-sm hover:shadow-xl transition-all relative overflow-hidden flex items-center justify-between"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-pink-100 w-12 h-12 rounded-xl flex items-center justify-center text-pink-600 group-hover:bg-pink-500 group-hover:text-white transition-colors">
+                                            <Zap className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-800">True Love <span className="text-sm font-normal text-gray-500 ml-1">₹249</span></h3>
+                                            <p className="text-gray-500 text-sm">More themes, 15 photos max</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-6 h-6 text-gray-300 group-hover:text-pink-500 transition-colors" />
+                                </div>
+
+                                {/* Forever Love Plan */}
+                                <div
+                                    onClick={() => handlePlanSelect('forever-love')}
+                                    className="group cursor-pointer bg-gradient-to-r from-purple-50 to-white/90 backdrop-blur-md p-6 rounded-2xl border-2 border-purple-200 hover:border-purple-400 shadow-md hover:shadow-2xl transition-all relative overflow-hidden flex items-center justify-between"
+                                >
+                                    <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">POPULAR</div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-purple-100 w-12 h-12 rounded-xl flex items-center justify-center text-purple-600 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                                            <Crown className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-gray-800">Forever Love <span className="text-sm font-normal text-gray-500 ml-1">₹399</span></h3>
+                                            <p className="text-gray-500 text-sm">All themes, 20 photos max</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-6 h-6 text-gray-300 group-hover:text-purple-500 transition-colors" />
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* STEP 2: DETAILS */}
+                    {step === 2 && (
+                        <motion.div
+                            key="step2"
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
@@ -195,9 +386,10 @@ const CreateGallery = () => {
                         </motion.div>
                     )}
 
-                    {step === 2 && (
+                    {/* STEP 3: STORY */}
+                    {step === 3 && (
                         <motion.div
-                            key="step2"
+                            key="step3"
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
@@ -231,9 +423,10 @@ const CreateGallery = () => {
                         </motion.div>
                     )}
 
-                    {step === 3 && (
+                    {/* STEP 4: UPLOADS */}
+                    {step === 4 && (
                         <motion.div
-                            key="step3"
+                            key="step4"
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
@@ -243,14 +436,22 @@ const CreateGallery = () => {
                                 <ImagePlus className="w-6 h-6 text-primary" />
                                 <h2 className="font-heading text-2xl font-bold text-foreground">Upload Memories</h2>
                             </div>
-                            <p className="text-muted-foreground font-body mb-6 text-sm">{photos.length}/20 photos added</p>
+                            <p className="text-muted-foreground font-body mb-6 text-sm">
+                                {photos.length}/{maxPhotos} photos added
+                                <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase">
+                                    {selectedPlan === 'free' ? 'First Love' : selectedPlan} plan
+                                </span>
+                            </p>
 
                             {/* Drop zone */}
                             <div
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={handlePhotoDrop}
-                                onClick={() => document.getElementById("photo-input")?.click()}
-                                className="border-2 border-dashed border-primary/30 rounded-xl p-10 text-center cursor-pointer hover:border-primary/60 hover:bg-secondary/50 transition-colors mb-6"
+                                onClick={() => photos.length < maxPhotos && document.getElementById("photo-input")?.click()}
+                                className={`border-2 border-dashed rounded-xl p-10 text-center transition-colors mb-6 ${photos.length >= maxPhotos
+                                    ? "border-muted-foreground/30 opacity-50 cursor-not-allowed"
+                                    : "border-primary/30 cursor-pointer hover:border-primary/60 hover:bg-secondary/50"
+                                    }`}
                             >
                                 <Upload className="w-10 h-10 text-primary/50 mx-auto mb-3" />
                                 <p className="font-body text-foreground font-medium">Drag & drop photos here</p>
@@ -261,6 +462,7 @@ const CreateGallery = () => {
                                     multiple
                                     accept="image/*"
                                     className="hidden"
+                                    disabled={photos.length >= maxPhotos}
                                     onChange={(e) => e.target.files && addFiles(Array.from(e.target.files))}
                                 />
                             </div>
@@ -268,15 +470,27 @@ const CreateGallery = () => {
                             {/* Preview grid */}
                             {photos.length > 0 && (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                    {photos.map((photo) => (
-                                        <div key={photo.id} className="relative group aspect-square rounded-xl overflow-hidden">
-                                            <img src={photo.url} alt="" className="w-full h-full object-cover" />
-                                            <button
-                                                onClick={() => removePhoto(photo.id)}
-                                                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
+                                    {photos.map((photo, index) => (
+                                        <div key={photo.id} className="relative group flex flex-col gap-2">
+                                            <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
+                                                <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                                                <button
+                                                    onClick={() => removePhoto(photo.id)}
+                                                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                placeholder="Add a caption..."
+                                                className="w-full px-2 py-1 text-sm rounded-md border bg-background/50 backdrop-blur-sm focus:bg-background transition-colors"
+                                                onChange={(e) => {
+                                                    const newPhotos = [...photos];
+                                                    newPhotos[index] = { ...photo, caption: e.target.value };
+                                                    setPhotos(newPhotos);
+                                                }}
+                                            />
                                         </div>
                                     ))}
                                 </div>
@@ -284,111 +498,96 @@ const CreateGallery = () => {
                         </motion.div>
                     )}
 
-                    {step === 4 && (
+                    {/* STEP 5: THEME */}
+                    {step === 5 && (
                         <motion.div
-                            key="step4"
+                            key="step5"
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -20 }}
-                            className="glass-card rounded-2xl p-6 sm:p-8"
+                            className="p-6 sm:p-8 text-white"
                         >
                             <div className="flex items-center gap-2 mb-6">
                                 <Palette className="w-6 h-6 text-primary" />
-                                <h2 className="font-heading text-2xl font-bold text-foreground">Theme & Music</h2>
+                                <h2 className="font-heading text-2xl font-bold text-white">Theme & Music</h2>
                             </div>
 
                             {/* Theme selector */}
-                            <h3 className="font-body font-semibold text-foreground mb-3">Choose a Theme</h3>
-                            {/* First Love Package */}
+                            <h3 className="font-body font-semibold text-white mb-3">Choose a Theme</h3>
+
+                            {/* All Themes Grouped but visually distinguished */}
+
+                            {/* First Love Themes */}
                             <div className="mb-8">
-                                <h4 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                                <h4 className="font-heading text-lg font-bold text-white mb-4 flex items-center gap-2">
                                     <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
-                                    First Love Package <span className="text-sm font-normal ml-1"><span className="line-through text-muted-foreground">₹299</span> ₹149</span>
+                                    First Love Themes
                                 </h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {themes.filter(t => t.package === "first-love").map((t) => {
-                                        const isDisabled = photos.length > 10;
-                                        return (
-                                            <button
-                                                key={t.id}
-                                                onClick={() => !isDisabled && setTheme(t.id)}
-                                                disabled={isDisabled}
-                                                className={`relative rounded-xl p-4 text-center border-2 transition-all ${theme === t.id ? "border-primary shadow-lg" : "border-transparent hover:border-primary/30"
-                                                    } ${isDisabled ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-                                            >
-                                                <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner`} />
-                                                <span className="font-body text-xs sm:text-sm text-foreground">{t.name}</span>
-                                                {theme === t.id && (
-                                                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full romantic-gradient flex items-center justify-center">
-                                                        <Check className="w-3 h-3 text-primary-foreground" />
-                                                    </div>
-                                                )}
-                                                {isDisabled && (
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <span className="bg-background/80 text-foreground text-[10px] px-2 py-1 rounded-full font-bold">Max 10 Photos</span>
-                                                    </div>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {themes.filter(t => t.package === "first-love").map((t) => (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => setTheme(t.id)}
+                                            className={`relative rounded-xl p-4 text-center border-2 transition-all backdrop-blur-sm bg-black/20 ${theme === t.id ? "border-primary shadow-lg" : "border-transparent hover:border-primary/30"}`}
+                                        >
+                                            <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner`} />
+                                            <span className="font-body text-xs sm:text-sm text-white">{t.name}</span>
+                                            {theme === t.id && (
+                                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full romantic-gradient flex items-center justify-center">
+                                                    <Check className="w-3 h-3 text-primary-foreground" />
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* True Love Package */}
+                            {/* True Love Themes */}
                             <div className="mb-8">
-                                <h4 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                                    <span className="text-xl">💍</span>
-                                    True Love Package <span className="text-sm font-normal ml-1"><span className="line-through text-muted-foreground">₹499</span> ₹249</span>
+                                <h4 className="font-heading text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <Zap className="w-5 h-5 fill-amber-500 text-amber-500" />
+                                    True Love Themes
                                 </h4>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {themes.filter(t => t.package === "true-love").map((t) => {
-                                        const isDisabled = photos.length > 15;
-                                        return (
-                                            <button
-                                                key={t.id}
-                                                onClick={() => !isDisabled && setTheme(t.id)}
-                                                disabled={isDisabled}
-                                                className={`relative rounded-xl p-4 text-center border-2 transition-all ${theme === t.id
-                                                    ? "border-amber-500 shadow-xl shadow-amber-500/20"
-                                                    : "border-amber-200 hover:border-amber-400"
-                                                    } ${isDisabled ? "opacity-50 cursor-not-allowed grayscale" : ""}`}
-                                            >
-                                                <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner ring-1 ring-black/5`} />
-                                                <span className="font-body text-xs sm:text-sm text-foreground font-medium">{t.name}</span>
-                                                {theme === t.id && (
-                                                    <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-md">
-                                                        <Check className="w-3.5 h-3.5 text-white" />
-                                                    </div>
-                                                )}
-                                                {isDisabled && (
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <span className="bg-background/80 text-foreground text-[10px] px-2 py-1 rounded-full font-bold">Max 15 Photos</span>
-                                                    </div>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {themes.filter(t => t.package === "true-love").map((t) => (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => setTheme(t.id)}
+                                            className={`relative rounded-xl p-4 text-center border-2 transition-all backdrop-blur-sm bg-black/20 ${theme === t.id
+                                                ? "border-amber-500 shadow-xl shadow-amber-500/20"
+                                                : "border-amber-200 hover:border-amber-400"}`}
+                                        >
+                                            <div className="absolute top-1 left-1 bg-amber-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">TRUE LOVE</div>
+                                            <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner ring-1 ring-black/5`} />
+                                            <span className="font-body text-xs sm:text-sm text-white font-medium">{t.name}</span>
+                                            {theme === t.id && (
+                                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-md">
+                                                    <Check className="w-3.5 h-3.5 text-white" />
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* Forever Love Package (Premium) */}
+                            {/* Forever Love Themes */}
                             <div className="mb-8">
-                                <h4 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                                    <span className="text-xl">👑</span>
-                                    Forever Love Package <span className="text-sm font-normal ml-1"><span className="line-through text-muted-foreground">₹999</span> ₹399</span> <span className="text-xs bg-gradient-to-r from-amber-400 to-yellow-600 text-white px-2 py-0.5 rounded-full font-sans uppercase tracking-wider font-bold shadow-sm">Most Popular</span>
+                                <h4 className="font-heading text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <Crown className="w-5 h-5 fill-yellow-500 text-yellow-500" />
+                                    Forever Love Themes
                                 </h4>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                     {themes.filter(t => t.package === "forever-love").map((t) => (
                                         <button
                                             key={t.id}
                                             onClick={() => setTheme(t.id)}
-                                            className={`relative rounded-xl p-4 text-center border-2 transition-all group ${theme === t.id
+                                            className={`relative rounded-xl p-4 text-center border-2 transition-all group backdrop-blur-sm bg-black/20 ${theme === t.id
                                                 ? "border-amber-500 shadow-xl shadow-amber-500/20"
-                                                : "border-amber-200 hover:border-amber-400"
-                                                }`}
+                                                : "border-amber-200 hover:border-amber-400"}`}
                                         >
+                                            <div className="absolute top-1 left-1 bg-purple-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">FOREVER</div>
                                             <div className={`w-full h-16 rounded-lg bg-gradient-to-br ${t.colors} mb-2 shadow-inner ring-1 ring-black/5`} />
-                                            <span className="font-body text-xs sm:text-sm text-foreground font-medium">{t.name}</span>
+                                            <span className="font-body text-xs sm:text-sm text-white font-medium">{t.name}</span>
                                             {theme === t.id && (
                                                 <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gradient-to-r from-amber-400 to-yellow-600 flex items-center justify-center shadow-md">
                                                     <Check className="w-3.5 h-3.5 text-white" />
@@ -404,24 +603,102 @@ const CreateGallery = () => {
                             {/* Music selector */}
                             <div className="flex items-center gap-2 mb-3">
                                 <Music className="w-5 h-5 text-primary" />
-                                <h3 className="font-body font-semibold text-foreground">Background Music</h3>
+                                <h3 className="font-body font-semibold text-white">Background Music</h3>
                             </div>
                             <div className="space-y-2">
-                                {musicOptions.map((m) => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => setMusic(m.id)}
-                                        className={`w-full text-left px-4 py-3 rounded-xl border-2 font-body transition-all flex items-center gap-3 ${music === m.id
-                                            ? "border-primary bg-secondary"
-                                            : "border-border hover:border-primary/30"
-                                            }`}
-                                    >
-                                        <span className="text-xl">{m.emoji}</span>
-                                        <span className="text-foreground">{m.name}</span>
-                                        {music === m.id && <Check className="w-4 h-4 text-primary ml-auto" />}
-                                    </button>
-                                ))}
+                                <Select
+                                    value={music}
+                                    onValueChange={(value) => setMusic(value as GalleryData["music"])}
+                                >
+                                    <SelectTrigger className="w-full px-4 py-8 rounded-xl border-2 border-white/20 bg-black/20 backdrop-blur-sm text-white font-body text-lg focus:ring-primary focus:border-primary/50 transition-all">
+                                        <SelectValue placeholder="Select background music" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-black/80 backdrop-blur-xl border-white/20 text-white">
+                                        {musicOptions.map((m) => (
+                                            <SelectItem
+                                                key={m.id}
+                                                value={m.id}
+                                                className="focus:bg-white/20 focus:text-white cursor-pointer py-3 text-base"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xl">{m.emoji}</span>
+                                                    <span>{m.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Upgrade Modal */}
+                <AnimatePresence>
+                    {showUpgradeModal && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                            onClick={() => setShowUpgradeModal(false)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
+                            >
+                                <div className="text-center mb-6">
+                                    <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Crown className="w-8 h-8 text-white" />
+                                    </div>
+                                    <h3 className="font-heading text-2xl font-bold text-gray-800 mb-2">
+                                        Upgrade Required
+                                    </h3>
+                                    <p className="text-gray-600 font-body">
+                                        This beautiful theme requires the{" "}
+                                        <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+                                            {requiredPlan === 'true-love' ? 'True Love' : 'Forever Love'}
+                                        </span>{" "}
+                                        package
+                                    </p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm text-gray-600">Current Plan:</span>
+                                        <span className="font-semibold text-gray-800">
+                                            {selectedPlan === 'free' ? 'First Love' : selectedPlan === 'true-love' ? 'True Love' : 'Forever Love'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-gray-600">Required Plan:</span>
+                                        <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+                                            {requiredPlan === 'true-love' ? 'True Love' : 'Forever Love'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowUpgradeModal(false);
+                                            setStep(1);
+                                        }}
+                                        className="w-full px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-white hover:shadow-lg transition-all"
+                                    >
+                                        Change Plan
+                                    </button>
+                                    <button
+                                        onClick={() => setShowUpgradeModal(false)}
+                                        className="w-full px-6 py-3 rounded-full font-body font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                                    >
+                                        Choose Different Theme
+                                    </button>
+                                </div>
+                            </motion.div>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -441,7 +718,7 @@ const CreateGallery = () => {
                         <div />
                     )}
 
-                    {step < 4 ? (
+                    {step < 5 ? (
                         <motion.button
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
@@ -456,9 +733,14 @@ const CreateGallery = () => {
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={handleGenerate}
-                            className="px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-primary-foreground flex items-center gap-2 animate-pulse-glow"
+                            disabled={isGenerating}
+                            className="px-6 py-3 rounded-full font-body font-semibold romantic-gradient text-primary-foreground flex items-center gap-2 animate-pulse-glow disabled:opacity-70 disabled:cursor-wait"
                         >
-                            Generate My Love Page <Heart className="w-4 h-4 fill-current" />
+                            {isGenerating ? (
+                                <>Generating... <span className="animate-spin">⏳</span></>
+                            ) : (
+                                <>Generate My Love Page <Heart className="w-4 h-4 fill-current" /></>
+                            )}
                         </motion.button>
                     )}
                 </div>

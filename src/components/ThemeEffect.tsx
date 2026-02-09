@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AnoAI from "@/components/ui/animated-shader-background";
 
 interface Particle {
     id: number;
@@ -29,6 +30,7 @@ const getEffectType = (theme: string): EffectType => {
         case "autumn-warmth":
         case "cherry-blossom":
         case "lavender-dream":
+        case "lavender-mist":
             return "leaves";
         case "candle-light":
         case "golden-sunset":
@@ -38,6 +40,19 @@ const getEffectType = (theme: string): EffectType => {
             return "hearts";
     }
 };
+
+export const videoThemes = [
+    "autumn-warmth",
+    "candle-light",
+    "cherry-blossom",
+    "enchanted-forest",
+    "golden-sunset",
+
+    "lavender-dream",
+    "mystic-aura",
+    "ocean-romance",
+    "starry-sky",
+];
 
 const ThemeEffect = ({ theme }: { theme: string }) => {
     const [particles, setParticles] = useState<Particle[]>([]);
@@ -157,6 +172,38 @@ const ThemeEffect = ({ theme }: { theme: string }) => {
                 );
         }
     };
+
+    if (videoThemes.includes(theme)) {
+        return (
+            <>
+                <div className="fixed inset-0 z-0">
+                    <video
+                        key={theme}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                    >
+                        <source src={`/themes/${theme}.mp4`} type="video/mp4" />
+                    </video>
+                    {/* Add a slight overlay to ensure text readability if needed, or rely on the video's brightness */}
+                    <div className="absolute inset-0 bg-black/20" />
+                </div>
+                <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+                    {particles.map((p) => renderParticle(p))}
+                </div>
+            </>
+        );
+    }
+
+    if (effect === "stars") {
+        return (
+            <div className="fixed inset-0 z-0">
+                <AnoAI />
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
