@@ -5,8 +5,8 @@ import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "Lovable App",
-    description: "Lovable Generated Project",
+    title: "Love Story Canvas",
+    description: "Create your interactive love story gallery",
 };
 
 export default function RootLayout({
