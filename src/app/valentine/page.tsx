@@ -39,8 +39,8 @@ export default function CreateValentine() {
                     {
                         senderName: data.senderName,
                         partnerName: data.partnerName,
-                        senderPhone: data.senderPhone,
-                        partnerPhone: data.partnerPhone,
+                        senderPhone: `+91${data.senderPhone}`,
+                        partnerPhone: `+91${data.partnerPhone}`,
                         plan: selectedPlan
                     }
                 ])
@@ -172,15 +172,22 @@ export default function CreateValentine() {
                                 <label htmlFor="senderPhone" className="block text-sm font-medium text-gray-700 mb-2 font-body">
                                     Your WhatsApp Number
                                 </label>
-                                <input
-                                    {...register("senderPhone", {
-                                        required: "Your phone number is required",
-                                        pattern: { value: /^\+?[0-9]{10,15}$/, message: "Invalid phone number" }
-                                    })}
-                                    type="tel"
-                                    placeholder="e.g. 919876543210"
-                                    className="w-full px-4 py-3 rounded-xl border border-pink-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-body text-gray-800 bg-white/50 placeholder:text-gray-400"
-                                />
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">+91</span>
+                                    <input
+                                        {...register("senderPhone", {
+                                            required: "Your phone number is required",
+                                            pattern: { value: /^[0-9]{10}$/, message: "Please enter a valid 10-digit number" },
+                                            onChange: (e) => {
+                                                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            }
+                                        })}
+                                        type="tel"
+                                        inputMode="numeric"
+                                        placeholder="9876543210"
+                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-pink-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-body text-gray-800 bg-white/50 placeholder:text-gray-400"
+                                    />
+                                </div>
                                 <p className="text-xs text-gray-500 mt-1">Receive a WhatsApp message when they say Yes! 💖</p>
                                 {errors.senderPhone && (
                                     <p className="text-rose-500 text-sm mt-1">{errors.senderPhone.message}</p>
@@ -191,15 +198,22 @@ export default function CreateValentine() {
                                 <label htmlFor="partnerPhone" className="block text-sm font-medium text-gray-700 mb-2 font-body">
                                     Partner's WhatsApp Number
                                 </label>
-                                <input
-                                    {...register("partnerPhone", {
-                                        required: "Partner's phone number is required",
-                                        pattern: { value: /^\+?[0-9]{10,15}$/, message: "Invalid phone number" }
-                                    })}
-                                    type="tel"
-                                    placeholder="e.g. 919876543210"
-                                    className="w-full px-4 py-3 rounded-xl border border-pink-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-body text-gray-800 bg-white/50 placeholder:text-gray-400"
-                                />
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">+91</span>
+                                    <input
+                                        {...register("partnerPhone", {
+                                            required: "Partner's phone number is required",
+                                            pattern: { value: /^[0-9]{10}$/, message: "Please enter a valid 10-digit number" },
+                                            onChange: (e) => {
+                                                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            }
+                                        })}
+                                        type="tel"
+                                        inputMode="numeric"
+                                        placeholder="9876543210"
+                                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-pink-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition-all font-body text-gray-800 bg-white/50 placeholder:text-gray-400"
+                                    />
+                                </div>
                                 <p className="text-xs text-gray-500 mt-1">We'll help you send the link to this number.</p>
                                 {errors.partnerPhone && (
                                     <p className="text-rose-500 text-sm mt-1">{errors.partnerPhone.message}</p>

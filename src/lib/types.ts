@@ -4,6 +4,8 @@ export interface GalleryData {
     partnerName: string;
     loveMessage: string;
     specialDate: string;
+    yourWhatsapp?: string;
+    partnerWhatsapp?: string;
     photos: { id: string; url: string; caption?: string }[];
     theme: "rose-red" | "soft-pink" | "candle-light" | "midnight-passion" | "ocean-romance" | "golden-sunset" | "enchanted-forest" | "lavender-dream" | "lavender-mist" | "velvet-night" | "classic-love" | "cherry-blossom" | "starry-sky" | "autumn-warmth" | "mystic-aura" | "pure-elegance";
     music: string;
