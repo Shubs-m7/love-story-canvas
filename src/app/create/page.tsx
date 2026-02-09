@@ -335,7 +335,7 @@ const CreateGallery = () => {
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-bold text-gray-800">True Love <span className="text-sm font-normal text-gray-500 ml-1">₹249</span></h3>
-                                            <p className="text-gray-500 text-sm">More themes, 15 photos max</p>
+                                            <p className="text-gray-500 text-sm">More themes, 15 photos max, Custom Music</p>
                                         </div>
                                     </div>
                                     <ArrowRight className="w-6 h-6 text-gray-300 group-hover:text-pink-500 transition-colors" />
@@ -353,7 +353,7 @@ const CreateGallery = () => {
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-bold text-gray-800">Forever Love <span className="text-sm font-normal text-gray-500 ml-1">₹399</span></h3>
-                                            <p className="text-gray-500 text-sm">All themes, 20 photos max</p>
+                                            <p className="text-gray-500 text-sm">All themes, 20 photos max, Custom Music</p>
                                         </div>
                                     </div>
                                     <ArrowRight className="w-6 h-6 text-gray-300 group-hover:text-purple-500 transition-colors" />
